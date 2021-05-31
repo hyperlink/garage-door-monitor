@@ -1,0 +1,32 @@
+.eslintcache
+
+# OSX Artifacts
+.DS_Store
+
+# NPM Artifacts
+node_modules
+.npmrc
+npm-debug.log
+.npm-cache
+
+# Yarn Artifacts
+yarn.lock
+
+# VSCode Artifacts
+.vscode/
+
+# Source & Source Maps
+*.map
+*.js.map
+.lvimrc
+
+dist/*
+
+#TypeScript Artifacts
+.tscache
+dist/*/**/*.js.map
+dist/*/**/*.js
+tscommand*.tmp.txt
+samples
+tm-my-image-model*
+low-score-*
