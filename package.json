@@ -1,6 +1,6 @@
 {
   "name": "@hyperlink/garage-door-monitor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatic notification if garage door is open or closed using JavaScript and ML",
   "main": "dist/index.js",
   "bin": "dist/index.js",
@@ -10,7 +10,7 @@
     "prepare": "npm run compile"
   },
   "author": "Xiaoxin Lu <javascript@yahoo.com>",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@teachablemachine/image": "^0.8.4",
     "@tensorflow/tfjs-node": "^3.6.1",
