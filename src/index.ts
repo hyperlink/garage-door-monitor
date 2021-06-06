@@ -10,6 +10,7 @@ import pRetry from 'p-retry';
 import cpFile from 'cp-file';
 import { existsSync } from 'fs';
 import execa from 'execa';
+import * as _ from 'lodash';
 
 const MAX_RETRIES = 5;
 const CONFIDENCE_THRESHOLD = 75;
@@ -19,16 +20,16 @@ const modelPath = resolve(process.env.MODEL_PATH);
 const imagePath = resolve(process.env.IMAGE_PATH || DEFAULT_IMAGE_PATH);
 const prediction = new Prediction(modelPath);
 const pushover = new Pushover(process.env.PUSHOVER_TOKEN, process.env.PUSHOVER_USER);
-const RAM_DISK_SIZE_MB = process.env.RAM_DISK_SIZE || 2 ;
+const RAM_DISK_SIZE_MB = process.env.RAM_DISK_SIZE || 2;
+const RTSP_URL = process.env.RTSP_URL;
 
 let previousIsClosedState = null;
-let dateOfLastLowProbability = null;
 
 const TEN_MINUTES = ms('10m');
 
 async function checkGarageDoor() {
   try {
-    await captureFrameImage(process.env.RTSP_URL, imagePath);
+    await captureFrameImage(RTSP_URL, imagePath);
     const result = await prediction.predict(imagePath);
     const roundedResult = Math.round(result.probability * 100);
     let friendlyResult = '';
@@ -48,14 +49,7 @@ async function checkGarageDoor() {
       const message = `Detected low confidence score of ${roundedResult}% (${result.className}). Saved image to ${renamedImagePath}`;
       console.log(message);
       // We don't want to low probability to spam
-      if (dateOfLastLowProbability == null || Date.now() - dateOfLastLowProbability >= TEN_MINUTES ) {
-        await pushover.sendMessage({
-          title: '🤷🏻‍♂️ I am not sure... ',
-          message,
-          attachment: imagePath
-        });
-      }
-      dateOfLastLowProbability = Date.now();
+      await throttledLowProbabilityPush(message);
       await cpFile(imagePath, renamedImagePath);
     } else {
       if ((previousIsClosedState == null && !isClosed) || (previousIsClosedState != null && previousIsClosedState !== isClosed)) {
@@ -72,15 +66,31 @@ async function checkGarageDoor() {
     console.log(`I have ${roundedResult}% confidence the garage door is ${friendlyResult} (class: ${result.className})`);
   } catch (error) {
     console.error(error);
-    await pushover.sendMessage({
-      title: '⚠️ application error',
-      message: error.message
-    });
+    await throttledPushError(error);
   }
   finally {
     await del(imagePath, { force: true, onlyFiles: true });
   }
 }
+
+async function lowProbabilityPush(message: string): Promise<void> {
+  await pushover.sendMessage({
+    title: '🤷🏻‍♂️ I am not sure... ',
+    message,
+    attachment: imagePath
+  });
+}
+
+const throttledLowProbabilityPush = _.throttle(lowProbabilityPush, TEN_MINUTES, { leading: true });
+
+async function pushError(error: Error): Promise<void> {
+  await pushover.sendMessage({
+    title: '⚠️ application error',
+    message: error.message
+  });
+}
+
+const throttledPushError = _.throttle(pushError, TEN_MINUTES, { leading: true });
 
 function loopCheck() {
   console.log('Checking again in ' + ms(CHECK_GARAGE_EVERY_MS, { long: true }));
