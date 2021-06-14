@@ -49,8 +49,8 @@ async function checkGarageDoor() {
       const message = `Detected low confidence score of ${roundedResult}% (${result.className}). Saved image to ${renamedImagePath}`;
       console.log(message);
       // We don't want to low probability to spam
-      await throttledLowProbabilityPush(message);
       await cpFile(imagePath, renamedImagePath);
+      await throttledLowProbabilityPush(message, renamedImagePath);
     } else {
       if ((previousIsClosedState == null && !isClosed) || (previousIsClosedState != null && previousIsClosedState !== isClosed)) {
         console.log('sending notification');
@@ -73,11 +73,11 @@ async function checkGarageDoor() {
   }
 }
 
-async function lowProbabilityPush(message: string): Promise<void> {
+async function lowProbabilityPush(message: string, attachment: string): Promise<void> {
   await pushover.sendMessage({
     title: '🤷🏻‍♂️ I am not sure... ',
     message,
-    attachment: imagePath
+    attachment
   });
 }
 

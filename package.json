@@ -1,9 +1,12 @@
 {
   "name": "@hyperlink/garage-door-monitor",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Automatic notification if garage door is open or closed using JavaScript and ML",
   "main": "dist/index.js",
   "bin": "dist/index.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "tsc",
