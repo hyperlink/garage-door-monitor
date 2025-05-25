@@ -1,67 +1,82 @@
-import { createCanvas, loadImage } from 'canvas';
-import { createFile } from './createFile';
-import { JSDOM } from 'jsdom';
-import { loadLayersModel, io } from '@tensorflow/tfjs-node';
-import { CustomMobileNet } from '@teachablemachine/image';
-import * as _ from 'lodash';
+import * as tf from '@tensorflow/tfjs-node';
+import * as fs from 'fs';
+import * as path from 'path';
 import assert from 'assert';
-
-const window = global.window = new JSDOM('<!doctype html><html><body></body></html>').window;
-const { File, FileReader } = window;
-global.document = window.document;
-global.HTMLVideoElement = window.HTMLVideoElement;
-global.fetch = require('node-fetch');
-
-const originalCreateElement = window.document.createElement;
-
-window.document.createElement = function (element) {
-  if (element === 'canvas') {
-    // console.log('override called');
-    return createCanvas(2304, 1296);
-  }
-  return originalCreateElement(element);
-}
-
-global.FileReader = FileReader; // needed by tfjs-core
-
-const IMAGE_SIZE = 224
 
 export interface PredictionResult {
   className: string;
   probability: number;
 }
 
+interface ModelMetadata {
+  labels: string[];
+  imageSize: number;
+}
+
 export class Prediction {
-  private model: CustomMobileNet;
+  private model: tf.LayersModel | null = null;
+  private labels: string[] = [];
+
   constructor(private modelRootPath: string) {
     assert(this.modelRootPath, 'Model directory must be included');
   }
 
-  private async initializeModel() {
+  private loadMetadata(): void {
+    const metadataPath = path.join(this.modelRootPath, 'metadata.json');
+    const metadataContent = fs.readFileSync(metadataPath, 'utf8');
+    const metadata: ModelMetadata = JSON.parse(metadataContent);
+    this.labels = metadata.labels;
+  }
+
+  private async initializeModel(): Promise<void> {
     if (this.model) {
       return;
     }
-    console.log('loading model files');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const metadata = require(`${this.modelRootPath}/metadata.json`);
-    metadata.imageSize = IMAGE_SIZE; // tm image sizes are the same square dimensions
-    const [modelFile, weightsFile] = await Promise.all([
-      createFile(`${this.modelRootPath}/model.json`, File),
-      createFile(`${this.modelRootPath}/weights.bin`, File)
-    ]);
-    const customModel = await loadLayersModel(io.browserFiles([modelFile, weightsFile]));
-    this.model = new CustomMobileNet(customModel, metadata);
+
+    // Load labels from metadata.json
+    this.loadMetadata();
+
+    const modelURL = `file://${this.modelRootPath}/model.json`;
+    console.log('modelURL', modelURL);
+    this.model = await tf.loadLayersModel(modelURL);
+  }
+
+  private readImage(filePath: string): tf.Tensor {
+    const imageBuffer = fs.readFileSync(filePath);
+    const tfimage = tf.node.decodeImage(imageBuffer, 3);
+
+    // Center-crop to square
+    const [height, width] = tfimage.shape;
+    const side = Math.min(height, width);
+    const offsetY = Math.floor((height - side) / 2);
+    const offsetX = Math.floor((width - side) / 2);
+
+    const cropped = tfimage.slice([offsetY, offsetX, 0], [side, side, 3]);
+    const resized = tf.image.resizeBilinear(cropped, [224, 224]);
+    const normalized = resized.div(tf.scalar(255));
+    return normalized.expandDims(0);
   }
 
   async predict(imagePath: string): Promise<PredictionResult> {
     await this.initializeModel();
 
-    // const maxPredictions = model.getTotalClasses();
-    // console.log('maxPredictions', maxPredictions);
-    const testImage = await loadImage(imagePath);
-    const predictions = await this.model.predict(testImage as any);
-    console.log(predictions);
-    const result = _.last(_.sortBy(predictions, 'probability'));
-    return result;
+    const input = this.readImage(imagePath);
+    const prediction = this.model!.predict(input) as tf.Tensor;
+
+    const predArray = prediction.arraySync() as number[][];
+
+    const probabilities = predArray[0];
+    const predictedIndex = probabilities.indexOf(Math.max(...probabilities));
+    const className = this.labels[predictedIndex];
+    const probability = probabilities[predictedIndex];
+
+    // Clean up tensors
+    input.dispose();
+    prediction.dispose();
+
+    return {
+      className,
+      probability
+    };
   }
 }

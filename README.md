@@ -61,6 +61,7 @@ module.exports = {
       PUSHOVER_USER: '<PUSHOVER USER>',
       TF_CPP_MIN_LOG_LEVEL: '3',
       // Optional defaults
+      GRACE_PERIOD: '5m', // timeformat https://www.npmjs.com/package/ms
       IMAGE_PATH: '/Users/xiaoxin/dev/garage-door-monitor/last-shot.jpg', // only provide this if you don't intend to use the ramdisk
       GARAGE_CHECK_INTERVAL: '30s', // timeformat https://www.npmjs.com/package/ms
       RAM_DISK_SIZE: '2' // size in MB

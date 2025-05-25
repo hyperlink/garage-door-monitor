@@ -6,7 +6,7 @@ const PUSHOVER_ENDPOINT = 'https://api.pushover.net/1/messages.json';
 export class Pushover {
   client: Got;
   constructor(private token: string, private user: string) {
-    this.client = got.extend({
+    this.client = got.default.extend({
       responseType: 'json',
       resolveBodyOnly: true
     });
