@@ -42,19 +42,20 @@ export class Prediction {
   }
 
   private readImage(filePath: string): tf.Tensor {
-    const imageBuffer = fs.readFileSync(filePath);
-    const tfimage = tf.node.decodeImage(imageBuffer, 3);
-
-    // Center-crop to square
-    const [height, width] = tfimage.shape;
-    const side = Math.min(height, width);
-    const offsetY = Math.floor((height - side) / 2);
-    const offsetX = Math.floor((width - side) / 2);
-
-    const cropped = tfimage.slice([offsetY, offsetX, 0], [side, side, 3]);
-    const resized = tf.image.resizeBilinear(cropped, [224, 224]);
-    const normalized = resized.div(tf.scalar(255));
-    return normalized.expandDims(0);
+    // wrap preprocessing in a tidy to dispose intermediates
+    return tf.tidy(() => {
+      const imageBuffer = fs.readFileSync(filePath);
+      const tfimage = tf.node.decodeImage(imageBuffer, 3);
+      // Center-crop to square
+      const [height, width] = tfimage.shape;
+      const side = Math.min(height, width);
+      const offsetY = Math.floor((height - side) / 2);
+      const offsetX = Math.floor((width - side) / 2);
+      const cropped = tfimage.slice([offsetY, offsetX, 0], [side, side, 3]);
+      const resized = tf.image.resizeBilinear(cropped, [224, 224]);
+      const normalized = resized.div(tf.scalar(255));
+      return normalized.expandDims(0);
+    });
   }
 
   async predict(imagePath: string): Promise<PredictionResult> {
