@@ -4,6 +4,7 @@ import del from 'del';
 import { captureFrameImage } from './lib/captureFrameImage.js';
 import { Prediction, PredictionResult } from './lib/prediction.js';
 import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import ms from 'ms';
 import { Pushover } from './lib/Pushover.js';
 import pRetry from 'p-retry';
@@ -12,6 +13,10 @@ import { existsSync } from 'fs';
 import execa from 'execa';
 import _ from 'lodash';
 import ipc from 'node-ipc';
+
+// __filename & __dirname polyfill for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
